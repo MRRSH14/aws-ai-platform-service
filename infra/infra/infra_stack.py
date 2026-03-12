@@ -1,5 +1,3 @@
-from typing import cast
-
 from aws_cdk import (
     Stack,
     CfnOutput,
@@ -14,12 +12,17 @@ class InfraStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        health_lambda = _lambda.Function(
+        app_lambda = _lambda.Function(
             self,
-            "HealthLambda",
+            "AppLambda",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=_lambda.Code.from_asset("../service/src"),
+        )
+
+        app_lambda_integration = HttpLambdaIntegration(
+            "AppLambdaIntegration",
+            handler=app_lambda,
         )
 
         http_api = HttpApi(
@@ -27,15 +30,28 @@ class InfraStack(Stack):
             "AwsAiPlatformServiceApi",
         )
 
-        health_integration = HttpLambdaIntegration(
-            "HealthIntegration",
-            handler=health_lambda,
-        )
-
         http_api.add_routes(
             path="/health",
             methods=[HttpMethod.GET],
-            integration=health_integration,
+            integration=app_lambda_integration,
+        )
+
+        http_api.add_routes(
+            path="/hello",
+            methods=[HttpMethod.GET],
+            integration=app_lambda_integration,
+        )
+
+        http_api.add_routes(
+            path="/tasks",
+            methods=[HttpMethod.POST],
+            integration=app_lambda_integration,
+        )
+
+        http_api.add_routes(
+            path="/tasks/{id}",
+            methods=[HttpMethod.GET],
+            integration=app_lambda_integration,
         )
 
         CfnOutput(
