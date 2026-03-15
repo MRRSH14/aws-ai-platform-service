@@ -32,7 +32,7 @@ def handle_hello(event: dict) -> dict:
 
     return json_response(200, {"message": f"Hello {name}!"})
 
-def handle_get_task(event: dict, tasks_table: boto3.dynamodb.Table) -> dict:
+def handle_get_task(event: dict, tasks_table) -> dict:
     path_params = event.get("pathParameters") or {}
     task_id = path_params.get("id")
 
@@ -53,7 +53,7 @@ def handle_get_task(event: dict, tasks_table: boto3.dynamodb.Table) -> dict:
 
     return json_response(200, item)
 
-def handle_create_task(event: dict, tasks_table: boto3.dynamodb.Table) -> dict:
+def handle_create_task(event: dict, tasks_table) -> dict:
     raw_body = event.get("body") or "{}"
 
     logger.info("Handling create task request. raw_body=%s", raw_body)
