@@ -2,6 +2,9 @@ import json
 import logging
 from datetime import datetime, timezone
 import uuid
+import os
+import boto3
+from botocore.exceptions import ClientError
 
 
 logger = logging.getLogger()
@@ -29,7 +32,7 @@ def handle_hello(event: dict) -> dict:
 
     return json_response(200, {"message": f"Hello {name}!"})
 
-def handle_get_task(event: dict) -> dict:
+def handle_get_task(event: dict, tasks_table: boto3.dynamodb.Table) -> dict:
     path_params = event.get("pathParameters") or {}
     task_id = path_params.get("id")
 
@@ -38,22 +41,19 @@ def handle_get_task(event: dict) -> dict:
     if not task_id:
         return json_response(400, {"error": "task id is required"})
 
-    if task_id != "task-123":
+    try:
+        response = tasks_table.get_item(Key={"taskId": task_id})
+    except ClientError:
+        logger.exception("Failed to read task from DynamoDB")
+        return json_response(500, {"error": "Failed to read task"})
+
+    item = response.get("Item")
+    if not item:
         return json_response(404, {"error": "Task not found"})
 
-    return json_response(
-        200,
-        {
-            "taskId": task_id,
-            "status": "completed",
-            "jobType": "demo",
-            "input": "test",
-            "createdAt": "2026-03-13T00:00:00+00:00",
-        },
-    )
+    return json_response(200, item)
 
-
-def handle_create_task(event: dict) -> dict:
+def handle_create_task(event: dict, tasks_table: boto3.dynamodb.Table) -> dict:
     raw_body = event.get("body") or "{}"
 
     logger.info("Handling create task request. raw_body=%s", raw_body)
@@ -78,29 +78,35 @@ def handle_create_task(event: dict) -> dict:
     task_id = f"task-{uuid.uuid4().hex[:8]}"
     created_at = datetime.now(timezone.utc).isoformat()
 
-    logger.info(
-        "Task accepted. taskId=%s jobType=%s input=%s",
-        task_id,
-        job_type,
-        input_value,
-    )
+    item = {
+        "taskId": task_id,
+        "status": "accepted",
+        "jobType": job_type,
+        "input": input_value,
+        "createdAt": created_at,
+    }
 
-    return json_response(
-        202,
-        {
-            "taskId": task_id,
-            "status": "accepted",
-            "jobType": job_type,
-            "input": input_value,
-            "createdAt": created_at,
-        },
-    )
+    try:
+        tasks_table.put_item(Item=item)
+    except ClientError:
+        logger.exception("Failed to write task to DynamoDB")
+        return json_response(500, {"error": "Failed to create task"})
 
+    logger.info("Task stored. taskId=%s", task_id)
+
+    return json_response(202, item)
 
 def handler(event, context):
     http_info = event.get("requestContext", {}).get("http", {})
     path = http_info.get("path")
     method = http_info.get("method")
+    tasks_table_name = os.getenv("TASKS_TABLE_NAME")
+    if not tasks_table_name:
+        logger.error("TASKS_TABLE_NAME environment variable is not set")
+        return json_response(500, {"error": "Internal server error"})
+
+    dynamodb = boto3.resource("dynamodb")
+    tasks_table = dynamodb.Table(tasks_table_name)
 
     logger.info("Incoming request. method=%s path=%s", method, path)
 
@@ -111,10 +117,10 @@ def handler(event, context):
         return handle_hello(event)
 
     if path == "/tasks" and method == "POST":
-        return handle_create_task(event)
+        return handle_create_task(event, tasks_table)
 
     if path.startswith("/tasks/") and method == "GET":
-        return handle_get_task(event)
+        return handle_get_task(event, tasks_table)
 
     logger.warning("Route not found. method=%s path=%s", method, path)
     return json_response(404, {"error": "Not found"})

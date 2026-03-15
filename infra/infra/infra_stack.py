@@ -2,6 +2,7 @@ from aws_cdk import (
     Stack,
     CfnOutput,
     aws_lambda as _lambda,
+    aws_dynamodb as dynamodb,
 )
 from constructs import Construct
 from aws_cdk.aws_apigatewayv2 import HttpApi, HttpMethod
@@ -12,13 +13,26 @@ class InfraStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        tasks_table = dynamodb.Table(
+            self,
+            "TasksTable",
+            partition_key=dynamodb.Attribute(
+                name="taskId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
         app_lambda = _lambda.Function(
             self,
             "AppLambda",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=_lambda.Code.from_asset("../service/src"),
+            environment={
+                "TASKS_TABLE_NAME": tasks_table.table_name,
+            },
         )
+
+        tasks_table.grant_read_write_data(app_lambda)
 
         app_lambda_integration = HttpLambdaIntegration(
             "AppLambdaIntegration",
