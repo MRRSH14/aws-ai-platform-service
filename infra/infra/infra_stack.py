@@ -8,7 +8,7 @@ from aws_cdk import (
 from constructs import Construct
 from aws_cdk.aws_apigatewayv2 import HttpApi, HttpMethod
 from aws_cdk.aws_apigatewayv2_integrations import HttpLambdaIntegration
-
+from aws_cdk import RemovalPolicy
 
 class InfraStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -21,6 +21,7 @@ class InfraStack(Stack):
                 name="taskId",
                 type=dynamodb.AttributeType.STRING,
             ),
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         tasks_queue = sqs.Queue(
