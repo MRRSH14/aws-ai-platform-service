@@ -1,22 +1,16 @@
 import json
-import logging
 from datetime import datetime, timezone
 import uuid
 import os
 import boto3
 from botocore.exceptions import ClientError
 
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-def json_response(status_code: int, payload: dict) -> dict:
-    return {
-        "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(payload),
-    }
+from shared import (
+    logger,
+    json_response,
+    get_tasks_table,
+    update_task_status,
+)
 
 
 def handle_health() -> dict:
@@ -101,14 +95,8 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
         return json_response(500, {"error": "Failed to create task"})
 
     try:
-        tasks_table.update_item(
-            Key={"taskId": task_id},
-            UpdateExpression="SET #status = :status",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":status": "queued"},
-        )
+        update_task_status(tasks_table, task_id, "queued")
     except ClientError:
-        logger.exception("Failed to update task status in DynamoDB")
         return json_response(500, {"error": "Failed to create task"})
 
     logger.info("Task enqueued. taskId=%s", task_id)
@@ -119,22 +107,15 @@ def handler(event, context):
     http_info = event.get("requestContext", {}).get("http", {})
     path = http_info.get("path")
     method = http_info.get("method")
-    tasks_table_name = os.getenv("TASKS_TABLE_NAME")
     tasks_queue_url = os.getenv("TASKS_QUEUE_URL")
-    # validation
-    if not tasks_table_name:
-        logger.error("TASKS_TABLE_NAME environment variable is not set")
-        return json_response(500, {"error": "Internal server error"})
-
     if not tasks_queue_url:
         logger.error("TASKS_QUEUE_URL environment variable is not set")
         return json_response(500, {"error": "Internal server error"})
 
-    dynamodb = boto3.resource("dynamodb")
-    tasks_table = dynamodb.Table(tasks_table_name)
+    tasks_table = get_tasks_table()
 
-    sqs = boto3.resource("sqs")
-    tasks_queue = sqs.Queue(tasks_queue_url)
+    sqs_resource = boto3.resource("sqs")
+    tasks_queue = sqs_resource.Queue(tasks_queue_url)
 
     logger.info("Incoming request. method=%s path=%s", method, path)
 
