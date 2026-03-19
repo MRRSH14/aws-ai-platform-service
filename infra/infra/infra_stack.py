@@ -20,7 +20,7 @@ class InfraStack(Stack):
             self,
             "TasksTable",
             partition_key=dynamodb.Attribute(
-                name="taskId",
+                name="task_id",
                 type=dynamodb.AttributeType.STRING,
             ),
             removal_policy=RemovalPolicy.DESTROY,

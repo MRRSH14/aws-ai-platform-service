@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime, timezone
 
 import boto3
 from botocore.exceptions import ClientError
@@ -29,20 +30,24 @@ def get_tasks_table():
 
 
 def update_task_status(tasks_table, task_id: str, status: str) -> None:
+    updated_at = datetime.now(timezone.utc).isoformat()
     try:
         tasks_table.update_item(
-            Key={"taskId": task_id},
-            UpdateExpression="SET #status = :status",
+            Key={"task_id": task_id},
+            UpdateExpression="SET #status = :status, updated_at = :updated_at",
             ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":status": status},
+            ExpressionAttributeValues={
+                ":status": status,
+                ":updated_at": updated_at,
+            },
         )
     except ClientError:
         logger.exception(
-            "Failed to update task status in DynamoDB. taskId=%s, status=%s",
+            "Failed to update task status in DynamoDB. task_id=%s, status=%s",
             task_id,
             status,
         )
         raise
 
-    logger.info("Task updated. taskId=%s, status=%s", task_id, status)
+    logger.info("Task updated. task_id=%s, status=%s", task_id, status)
 

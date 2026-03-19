@@ -36,7 +36,7 @@ def handle_get_task(event: dict, tasks_table) -> dict:
         return json_response(400, {"error": "task id is required"})
 
     try:
-        response = tasks_table.get_item(Key={"taskId": task_id})
+        response = tasks_table.get_item(Key={"task_id": task_id})
     except ClientError:
         logger.exception("Failed to read task from DynamoDB")
         return json_response(500, {"error": "Failed to read task"})
@@ -58,12 +58,12 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
         logger.warning("Invalid JSON body")
         return json_response(400, {"error": "Invalid JSON body"})
 
-    job_type = body.get("jobType")
+    job_type = body.get("job_type")
     input_value = body.get("input")
 
     if not job_type:
-        logger.warning("Missing required field: jobType")
-        return json_response(400, {"error": "jobType is required"})
+        logger.warning("Missing required field: job_type")
+        return json_response(400, {"error": "job_type is required"})
 
     if input_value is None:
         logger.warning("Missing required field: input")
@@ -73,11 +73,12 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
     created_at = datetime.now(timezone.utc).isoformat()
 
     item = {
-        "taskId": task_id,
+        "task_id": task_id,
         "status": "pending_enqueue",
-        "jobType": job_type,
+        "job_type": job_type,
         "input": input_value,
-        "createdAt": created_at,
+        "created_at": created_at,
+        "updated_at": created_at,
     }
 
     try:
@@ -86,7 +87,7 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
         logger.exception("Failed to write task to DynamoDB")
         return json_response(500, {"error": "Failed to create task"})
 
-    logger.info("Task stored. taskId=%s", task_id)
+    logger.info("Task stored. task_id=%s", task_id)
 
     try:
         tasks_queue.send_message(MessageBody=json.dumps(item))
@@ -99,8 +100,9 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
     except ClientError:
         return json_response(500, {"error": "Failed to create task"})
 
-    logger.info("Task enqueued. taskId=%s", task_id)
+    logger.info("Task enqueued. task_id=%s", task_id)
     item["status"] = "queued"
+    item["updated_at"] = datetime.now(timezone.utc).isoformat()
     return json_response(202, item)
 
 def handler(event, context):
