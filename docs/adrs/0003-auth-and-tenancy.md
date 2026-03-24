@@ -36,6 +36,9 @@ Use **Cognito User Pool + API Gateway JWT authorizer** for task endpoints.
 - Clients authenticate against Cognito User Pool and send `Authorization: Bearer <JWT>`.
 - API Gateway validates token signature, issuer, audience, and expiration.
 - API Lambda reads claims from request context.
+- Claim mapping for initial implementation:
+  - `tenant_id` <- `custom:tenant_id`
+  - `created_by` <- `sub` (fallback to `email` only if needed)
 
 ### Tenant-aware task model
 

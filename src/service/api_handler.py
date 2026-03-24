@@ -13,6 +13,27 @@ from shared import (
 )
 
 
+def get_jwt_claims(event: dict) -> dict:
+    request_context = event.get("requestContext", {})
+    authorizer = request_context.get("authorizer", {})
+    jwt = authorizer.get("jwt", {})
+    claims = jwt.get("claims")
+    if isinstance(claims, dict):
+        return claims
+    return {}
+
+
+def get_identity_from_claims(event: dict) -> tuple[str | None, str | None]:
+    claims = get_jwt_claims(event)
+    tenant_id = claims.get("custom:tenant_id")
+    created_by = claims.get("sub") or claims.get("email")
+    if not isinstance(tenant_id, str):
+        tenant_id = None
+    if not isinstance(created_by, str):
+        created_by = None
+    return tenant_id, created_by
+
+
 def handle_health() -> dict:
     logger.info("Handling health check")
     return json_response(200, {"ok": True})
@@ -46,6 +67,29 @@ def handle_get_task(event: dict, tasks_table) -> dict:
     if not item:
         return json_response(404, {"error": "Task not found"})
 
+    caller_tenant_id, _ = get_identity_from_claims(event)
+    if not caller_tenant_id:
+        logger.warning("Missing tenant claim on get task request. task_id=%s", task_id)
+        return json_response(403, {"error": "Missing tenant claim"})
+
+    task_tenant_id = item.get("tenant_id")
+    if not isinstance(task_tenant_id, str):
+        logger.warning(
+            "Task is missing tenant context. task_id=%s caller_tenant_id=%s",
+            task_id,
+            caller_tenant_id,
+        )
+        return json_response(403, {"error": "Task has no tenant context"})
+
+    if task_tenant_id != caller_tenant_id:
+        logger.warning(
+            "Cross-tenant access denied. task_id=%s caller_tenant_id=%s task_tenant_id=%s",
+            task_id,
+            caller_tenant_id,
+            task_tenant_id,
+        )
+        return json_response(403, {"error": "Forbidden"})
+
     return json_response(200, item)
 
 
@@ -71,6 +115,14 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
         logger.warning("Missing required field: input")
         return json_response(400, {"error": "input is required"})
 
+    tenant_id, created_by = get_identity_from_claims(event)
+    if not tenant_id:
+        logger.warning("Missing tenant claim on create task request")
+        return json_response(403, {"error": "Missing tenant claim"})
+    if not created_by:
+        logger.warning("Missing user identity claim on create task request")
+        return json_response(403, {"error": "Missing user identity claim"})
+
     task_id = f"task-{uuid.uuid4().hex[:8]}"
     created_at = datetime.now(timezone.utc).isoformat()
 
@@ -79,6 +131,8 @@ def handle_create_task(event: dict, tasks_table, tasks_queue) -> dict:
         "status": "pending_enqueue",
         "job_type": job_type,
         "input": input_value,
+        "tenant_id": tenant_id,
+        "created_by": created_by,
         "created_at": created_at,
         "updated_at": created_at,
     }
@@ -120,7 +174,7 @@ def handler(event, context):
     tasks_table = get_tasks_table()
 
     sqs_resource = boto3.resource("sqs")
-    tasks_queue = sqs_resource.Queue(tasks_queue_url)
+    tasks_queue = sqs_resource.Queue(tasks_queue_url)  # type: ignore[attr-defined]
 
     logger.info("Incoming request. method=%s path=%s", method, path)
 

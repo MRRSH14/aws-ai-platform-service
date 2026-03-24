@@ -56,7 +56,7 @@ Supporting pieces (not shown in detail above):
 4. **Task read (`GET /tasks/{id}`)**  
    Reads the item by `task_id` from DynamoDB and returns it, or **404** if missing.
 
-Task routes now require JWT authentication at API Gateway. Tenant ownership checks are the next step and are not enforced yet.
+Task routes now require JWT authentication at API Gateway. API handlers also enforce tenant ownership by reading JWT claims (`custom:tenant_id` for tenant scope and `sub`/`email` for creator identity).
 
 ### Async worker path
 
@@ -118,7 +118,7 @@ The sprint roadmap used names like `pending`; in code, the pre-queue state is **
 
 ## Current intentional limitations
 
-- **No tenant ownership enforcement yet:** Task rows currently have no `tenant_id`, and cross-tenant checks are not implemented in handlers yet.
+- **Tenant migration caveat:** Older task rows created before tenant-aware writes may not have `tenant_id`; those records may be inaccessible under strict tenant checks until migrated.
 - **No automatic DLQ processing:** Poison or stuck messages require manual or scripted handling.
 - **Worker is a stub:** Processing is a sleep; there is no real AI or external integration yet.
 - **Single table, string PK:** `task_id` only; no GSIs for listing by user or tenant.

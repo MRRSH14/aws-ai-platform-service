@@ -27,7 +27,7 @@ Rationale is recorded in [ADR 0001](docs/adrs/0001-async-task-pattern.md). DLQ h
 | `POST` | `/tasks` | Create a task. JSON body: `job_type` (string), `input` (any). Returns **202** with task including `task_id` and `status`. **JWT required** |
 | `GET` | `/tasks/{id}` | Return the task item from DynamoDB or **404**. **JWT required** |
 
-**Security note:** API Gateway now uses a Cognito User Pool JWT authorizer for task routes. `/health` and `/hello` remain public.
+**Security note:** API Gateway now uses a Cognito User Pool JWT authorizer for task routes, and task handlers enforce tenant ownership using JWT claims. `/health` and `/hello` remain public.
 
 ## Deploy flow
 
@@ -65,7 +65,7 @@ Task statuses and the split between **DynamoDB status** and **SQS/DLQ** behavior
 | Phase | Focus |
 |-------|--------|
 | **Current** | Async skeleton + auth boundary: API + SQS + worker + DynamoDB + DLQ + Cognito JWT protection on task routes; docs and ADRs. |
-| **Next** | Add **tenant fields** and ownership checks, then **structured observability** (logs, correlation IDs, metrics). |
+| **Next** | Strengthen tenant onboarding/migration details, then add **structured observability** (logs, correlation IDs, metrics). |
 | **Later** | **AI layer**: provider abstraction, task payload for model work, worker execution, persistence, cost/guardrails—**after** the platform boundary is credible. |
 
 ## Documentation index
