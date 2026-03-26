@@ -115,7 +115,7 @@ These came from **this thread** and related chats; they **extend** the baseline,
 
 ## Related docs
 
-- [Architecture](architecture.md) — [README](../README.md) — [DLQ runbook](runbooks/dlq-and-alerts.md) — [ADR 0001](adrs/0001-async-task-pattern.md) — [ADR 0002](adrs/0002-dlq-manual-operation.md)
+- [Architecture](architecture.md) — [README](../README.md) — [DLQ runbook](runbooks/dlq-and-alerts.md) — [ADR 0001](adrs/0001-async-task-pattern.md) — [ADR 0002](adrs/0002-dlq-manual-operation.md) — [ADR 0003](adrs/0003-auth-and-tenancy.md)
 
 ---
 
