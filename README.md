@@ -78,6 +78,10 @@ What it does:
 - logs in both users and obtains JWTs;
 - runs `scripts/dev_test_endpoints.sh` endpoint checks (public routes, protected routes, and cross-tenant denial).
 
+Prerequisites:
+
+- AWS credentials/profile must allow Cognito admin APIs (`admin-create-user`, `admin-update-user-attributes`, `admin-set-user-password`) and CloudFormation read access for stack outputs.
+
 You can run endpoint tests directly if you already have tokens:
 
 ```bash

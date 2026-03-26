@@ -123,8 +123,12 @@ echo "Logging in users..."
 TEST_ID_TOKEN="$(get_id_token "$TEST_EMAIL" "$TEST_PASSWORD")"
 DEMO_ID_TOKEN="$(get_id_token "$DEMO_EMAIL" "$DEMO_PASSWORD")"
 
+# Export for child scripts/processes.
+export API_URL
+export TEST_ID_TOKEN
+export DEMO_ID_TOKEN
+
 echo "Running endpoint test script..."
-API_URL="$API_URL" TEST_ID_TOKEN="$TEST_ID_TOKEN" DEMO_ID_TOKEN="$DEMO_ID_TOKEN" \
-  "$(dirname "$0")/dev_test_endpoints.sh"
+"$(dirname "$0")/dev_test_endpoints.sh"
 
 echo "Done."

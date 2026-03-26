@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (design phase; implementation follows Week 3 scope)
+Accepted and implemented for Week 3 baseline
 
 ## Context
 
